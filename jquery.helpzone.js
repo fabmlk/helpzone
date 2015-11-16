@@ -20,7 +20,11 @@
             event: 'focus', // on which event we want to display the data content
 			suppress: true, // boolean to tell if we want to remove title attribute or not
             content: function (input) { // function that get the content to display
-                return $(input).attr('oldtitle'); // oldtitle contains original title attribute
+				var title = input.attr("oldtitle"); // oldtitle contains original title attribute
+				if (typeof title === 'undefined') { // in case suprress option is false
+					title = input.attr("title");
+				}
+                return title;
             },
             beforeUpdate: null // callback to call before target zone is updated
         };
