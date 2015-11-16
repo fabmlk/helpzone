@@ -18,7 +18,7 @@
         this._defaults = {
             zone: $("<div/>"), // target jquery element where to display the data content
             event: 'focus', // on which event we want to display the data content
-						suppress: true, // boolean to tell if we want to remove title attribute or not
+			suppress: true, // boolean to tell if we want to remove title attribute or not
             content: function (input) { // function that get the content to display
                 return $(input).attr('oldtitle'); // oldtitle contains original title attribute
             },
@@ -98,7 +98,7 @@
             input.off(inst.options.event + '.' + this.propertyName);
             
             $.extend(inst.options, options); // update with new options 
-						// from now on options have been merged
+			// from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 plugin._beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
@@ -109,54 +109,54 @@
                     plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
                 }
             });
-						//
-						// store but remove title attribute because we don't want to see it on hover
-						if (inst.options.suppress) {
-							this._switchAttribute(input[0], "title", "oldtitle");
-						}
+			
+			// store but remove title attribute because we don't want to see it on hover
+			if (inst.options.suppress) {
+				this._switchAttribute(input[0], "title", "oldtitle");
+			}
             
             if (!inst.options.zone.length) { // if zone not in DOM, append to end of body
                 $('body').append(inst.options.zone);
             }
         },
 
-				/**
-				 * Put oldName attribute content into newName attribute and remove oldName attribute
-				 * @param {element} input the element onto which perform the switch
-				 * @param {String} oldName the attribute to be replaced with newName
-				 * @param {String} newName the attribute to replace oldName with
-				 */
-				_switchAttributes: function (input, oldName, newName) {
-						input = $(input);
-						input.attr(newName, input.attr(oldName)).removeAttr(oldName);
-				},
+		/**
+		 * Put oldName attribute content into newName attribute and remove oldName attribute
+		 * @param {element} input the element onto which perform the switch
+		 * @param {String} oldName the attribute to be replaced with newName
+		 * @param {String} newName the attribute to replace oldName with
+		*/
+		_switchAttribute: function (input, oldName, newName) {
+			input = $(input);
+			input.attr(newName, input.attr(oldName)).removeAttr(oldName);
+		},
         
-				/**
-				 * update content into the target zone
-				 * @param {jQuery} helpZone the target zone
-				 * @param {String} content the html content as string to set in the target zone
-				 */
+		/**
+		 * update content into the target zone
+		 * @param {jQuery} helpZone the target zone
+		 * @param {String} content the html content as string to set in the target zone
+		*/
         _updateHelpZoneContent: function (helpZone, content) {
             // using html() and val() chained makes it compatible with both standard dom elements and input text type/textarea
             helpZone.empty().html(content).val(content);
         },
         
-				/**
-				 * Get all inputs attached with the plugin sharing the same helpZone as the input passed in argument
-				 * @param {element} input the input reference targetting the shared zone
-				 * @return {jQuery} a collection of 0 or more inputs sharing the helpZone
-				 */
+		/**
+		 * Get all inputs attached with the plugin sharing the same helpZone as the input passed in argument
+		 * @param {element} input the input reference targetting the shared zone
+		 * @return {jQuery} a collection of 0 or more inputs sharing the helpZone
+		*/
         _getOtherSourcesWithSameHelpZoneTarget: function (input) {
-						input = $(input);
+			input = $(input);
             return $("." + this.markerClassNameSource).not(input).filter(function () {
                 return $(this).data(plugin.propertyName).options.zone[0] === $(input).data(plugin.propertyName).options.zone[0];
             });
         },
 
-				/**
-				 * Remove the plugin attached to the input to restore it to its initial state before applying the plugin
-				 * @param {element} input the input to remove the plugin from
-				 */
+		/**
+		 * Remove the plugin attached to the input to restore it to its initial state before applying the plugin
+		 * @param {element} input the input to remove the plugin from
+		*/
         _destroyPlugin: function (input) {
             input = $(input);
            
@@ -169,9 +169,9 @@
             input.removeData(this.propertyName);
             input.off(inst.options.event + '.' + this.propertyName);
 						
-						if (inst.options.suppress) {
-							this._switchAttribute(input[0], "oldtitle", "title");
-						}
+			if (inst.options.suppress) {
+				this._switchAttribute(input[0], "oldtitle", "title");
+			}
 
             if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
                 inst.options.zone.removeClass(this.markerClassNameTarget);
