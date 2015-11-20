@@ -20,7 +20,8 @@
             event: 'focus',
             content: function (input) {
                 return $(input).attr('title')
-            }
+            },
+            beforeUpdate: null // callback to call before target zone is updated
         };
     }
 
@@ -96,6 +97,9 @@
             
             $.extend(inst.options, options); // update with new options 
             input.on(inst.options.event + '.' + this.propertyName, function () {
+                if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
+                    inst.options.beforeUpdate.call(input, plugin._beforeUpdateEvent);
+                }
                 input.trigger(plugin._beforeUpdateEvent); // trigger ou custom event before update
                 if (!plugin._beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
                     plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
