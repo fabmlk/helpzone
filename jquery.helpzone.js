@@ -20,8 +20,7 @@
             event: 'focus',
             content: function (input) {
                 return $(input).attr('title')
-            },
-            beforeShow: null, // callback when the content is about to be written in the target help zone
+            }
         };
     }
 
@@ -32,6 +31,8 @@
         markerClassNameSource: 'fab-hasSourceHelpZone', // tag l'input comme etant attaché au plugin
         propertyName: 'fab-sourcehelpzone', // data attribute où on pourra retrouver l'instance de notre plugin
         markerClassNameTarget: 'fab-hasTargetHelpZone',
+        
+        _beforeUpdateEvent: $.Event("helpzonebeforeupdate"),
         
         // on définit une méthode pour setter global default options (remplacer nos default options pour tout le monde)
         // On l'évoque alors avant d'initializer le plugin pour un element via: $.helpzone.setDefaults({zone: ...., event: ....})
@@ -95,7 +96,10 @@
             
             $.extend(inst.options, options); // update with new options 
             input.on(inst.options.event + '.' + this.propertyName, function () {
-                plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
+                input.trigger(plugin._beforeUpdateEvent); // trigger ou custom event before update
+                if (!plugin._beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
+                    plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
+                }
             });
             
             if (!inst.options.zone.length) { // if zone not in DOM, append to end of body
