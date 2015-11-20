@@ -16,7 +16,7 @@
     // singleton pattern
     function HelpZone () {
         this._defaults = {
-            zone: $(document.body),
+            zone: $("<div/>"),
             event: 'focus',
             content: function (input) {
                 return $(input).attr('title')
@@ -99,6 +99,10 @@
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
             });
+            
+            if (!inst.options.zone.length) { // if zone not in DOM, append to end of body
+                $('body').append(inst.options.zone);
+            }
         },
         
         _updateHelpZoneContent: function (helpZone, content) {
