@@ -101,7 +101,7 @@
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
                     inst.options.beforeUpdate.call(input, plugin._beforeUpdateEvent, inst.options.zone);
                 }
-                input.trigger(plugin._beforeUpdateEvent, inst.options.zone); // trigger ou custom event before update
+                input.trigger(plugin._beforeUpdateEvent, [inst.options.zone]); // trigger ou custom event before update
                 if (!plugin._beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
                     plugin._updateHelpZoneContent(inst.options.zone, inst.options.content(input));
                 }
