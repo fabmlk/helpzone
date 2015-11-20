@@ -97,6 +97,7 @@
             
             $.extend(inst.options, options); // update with new options 
             input.on(inst.options.event + '.' + this.propertyName, function () {
+                plugin._beforeUpdateEvent.target = input; // set target event so delegated event can work
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
                     inst.options.beforeUpdate.call(input, plugin._beforeUpdateEvent, inst.options.zone);
                 }
