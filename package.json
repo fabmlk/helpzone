@@ -1,0 +1,19 @@
+{
+  "name": "helpzone",
+  "version": "1.0.0",
+  "description": "lightweight jquery plugin to show content of input attribute to target zone",
+  "main": "jquery.helpzone.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fabmlk/helpzone.git"
+  },
+  "author": "fabien lanoux",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fabmlk/helpzone/issues"
+  },
+  "homepage": "https://github.com/fabmlk/helpzone"
+}
