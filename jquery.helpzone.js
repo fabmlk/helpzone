@@ -89,9 +89,7 @@
                     inst.options.zone.removeClass(this.markerClassNameTarget);
                     this._updateHelpZoneContent(inst.options.zone, inst.options.initialContent);
                 }
-                if (!options.zone.hasClass(this.markerClassNameTarget)) {
-                    options.zone.addClass(this.markerClassNameTarget);
-                }
+                options.zone.addClass(this.markerClassNameTarget);
             }
             input.off(inst.options.event + '.' + this.propertyName);
             
