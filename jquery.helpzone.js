@@ -38,8 +38,6 @@
         propertyName: 'fab-sourcehelpzone', // data attribute où on pourra retrouver l'instance de notre plugin
         markerClassNameTarget: 'fab-hasTargetHelpZone',
         
-        _beforeUpdateEvent: $.Event("helpzonebeforeupdate"),
-        
         // on définit une méthode pour setter global default options (remplacer nos default options pour tout le monde)
         // On l'évoque alors avant d'initializer le plugin pour un element via: $.helpzone.setDefaults({zone: ...., event: ....})
         setDefaults: function (options) {
@@ -102,20 +100,22 @@
             input.off(inst.options.event + '.' + this.propertyName);
             
             $.extend(inst.options, options); // update with new options 
-			// from now on options have been merged
+            
+            // from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 var eventParams = {
                     helpzone: inst.options.zone,
                     newcontent: inst.options.content(input)
                 };
+                var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
                 
-                plugin._beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
+                beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
-                    inst.options.beforeUpdate.call(input, plugin._beforeUpdateEvent, eventParams);
+                    inst.options.beforeUpdate.call(input, beforeUpdateEvent, eventParams);
                 }
 
-                input.trigger(plugin._beforeUpdateEvent, [eventParams]); // trigger our custom event before update
-                if (!plugin._beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
+                input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
+                if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
                     plugin._updateHelpZoneContent(inst.options.zone, eventParams.newcontent);
                 }
             });
