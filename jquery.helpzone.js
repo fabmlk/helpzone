@@ -148,6 +148,10 @@
          */
         _updatePlugin: function(input, content) {
             input = $(input);
+            
+            if (!input.hasClass(this.markerClassNameSource)) {
+                return;
+            }
             var inst = input.data(this.propertyName);
             content = content || inst.options.content(input);
             this._updateHelpZoneContent(inst.options.zone, content);
@@ -182,6 +186,10 @@
          */
         _contentPlugin: function (input) {
             input = $(input);
+            
+            if (!input.hasClass(this.markerClassNameSource)) {
+                return;
+            }
             var inst = input.data(this.propertyName);
             return inst.options.content(input);
         },
