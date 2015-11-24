@@ -137,8 +137,20 @@
          * @param {String} newName the attribute to replace oldName with
         */
         _switchAttribute: function (input, oldName, newName) {
-                input = $(input);
-                input.attr(newName, input.attr(oldName)).removeAttr(oldName);
+            input = $(input);
+            input.attr(newName, input.attr(oldName)).removeAttr(oldName);
+        },
+
+        /**
+         * Update content immediately from custom content if present or from calling the content callback otherwise
+         * @param {element} input the input element the helpzone refers to
+         * @param {String} content string
+         */
+        _updatePlugin: function(input, content) {
+            input = $(input);
+            var inst = input.data(this.propertyName);
+            content = content || inst.options.content(input);
+            this._updateHelpZoneContent(inst.options.zone, content);
         },
 
         /**
@@ -201,7 +213,7 @@
         }
     });
     
-		// instanciate our singleton and save it the external plugin so we can reference it anywhere
+    // instanciate our singleton and save it the external plugin so we can reference it anywhere
     var plugin = $.helpzone = new HelpZone();
     
     // $.fn est en fait un alias pour $.prototype.
