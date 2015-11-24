@@ -157,10 +157,21 @@
          * @return {jQuery} a collection of 0 or more inputs sharing the helpZone
         */
         _getOtherSourcesWithSameHelpZoneTarget: function (input) {
-			input = $(input);
+            input = $(input);
             return $("." + this.markerClassNameSource).not(input).filter(function () {
                 return $(this).data(plugin.propertyName).options.zone[0] === $(input).data(plugin.propertyName).options.zone[0];
             });
+        },
+        
+        /**
+         * Get the content to be added to the helpzone
+         * @param {element} input the input we want the content from
+         * @returns {String} the htmlString of the content
+         */
+        _contentPlugin: function (input) {
+            input = $(input);
+            var inst = input.data(this.propertyName);
+            return inst.options.content(input);
         },
 
         /**
