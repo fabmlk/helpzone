@@ -123,7 +123,7 @@
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
                 if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                    plugin._updateHelpZoneContent(input, inst, eventParams.newcontent);
+                    plugin._updateHelpZoneContent(input, inst, eventParams.newContent);
                 }
             });
 			
