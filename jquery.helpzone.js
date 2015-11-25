@@ -96,10 +96,12 @@
             if (options.zone) {
                 if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
                     inst.options.zone.removeClass(this.markerClassNameTarget)
-                        .html(inst.options.initialContent);
+                        .html(inst.initialContent);
                 }
-                options.zone.addClass(this.markerClassNameTarget)
-                    .append("<div class='" + this.markerClassNameWrapper + "'>");
+                options.zone.addClass(this.markerClassNameTarget);
+                if (options.zone.children("." + this.markerClassNameWrapper).length === 0) {
+                    options.zone.children().wrapAll("<div class='" + this.markerClassNameWrapper + "'>");
+                }
             }
             
             input.off(inst.options.event + '.' + this.propertyName);
@@ -230,7 +232,7 @@
 
             if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
                 inst.options.zone.removeClass(this.markerClassNameTarget);
-                this._updateHelpZoneContent(inst.options.zone, inst.options.initialContent);
+                this._updateHelpZoneContent(inst.options.zone, inst.initialContent);
             }
         }
     });
