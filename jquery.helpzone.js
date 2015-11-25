@@ -19,6 +19,8 @@
             zone: $("<div/>"), // target jquery element where to display the data content
             event: 'focus', // on which event we want to display the data content
             suppress: true, // boolean to tell if we want to remove title attribute or not
+            show: null,
+            hide: null,
             content: function (input) { // function that get the content to display
                 var title = input.attr("oldtitle"); // oldtitle contains original title attribute
                 if (typeof title === 'undefined') { // in case suprress option is false
@@ -26,7 +28,8 @@
                 }
                 return title;
             },
-            beforeUpdate: null // callback to call before target zone is updated
+            beforeUpdate: null // callback to call before target zone is updated.
+                // Params object: { helpzone: the jquery helpzone element, newcontent: string the new content }
         };
     }
 
@@ -92,7 +95,7 @@
             if (options.zone) {
                 if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
                     inst.options.zone.removeClass(this.markerClassNameTarget);
-                    this._updateHelpZoneContent(inst.options.zone, inst.options.initialContent);
+                    this._updateHelpZoneContent(input, inst.options.zone, inst.options.initialContent, inst.options.show, inst.options.hide);
                 }
                 options.zone.addClass(this.markerClassNameTarget);
             }
@@ -154,7 +157,7 @@
             }
             var inst = input.data(this.propertyName);
             content = content || inst.options.content(input);
-            this._updateHelpZoneContent(inst.options.zone, content);
+            this._updateHelpZoneContent(input, inst.options.zone, content, inst.options.show, inst.options.hide);
         },
 
         /**
@@ -162,9 +165,14 @@
          * @param {jQuery} helpZone the target zone
          * @param {String} content the html content as string to set in the target zone
         */
-        _updateHelpZoneContent: function (helpZone, content) {
-            // using html() and val() chained makes it compatible with both standard dom elements and input text type/textarea
-            helpZone.empty().html(content).val(content);
+        _updateHelpZoneContent: function (input, helpZone, content, show, hide) {
+            show = show || $.noop;
+            hide = hide || $.noop;
+            hide.call(input);
+            helpZone.promise().done(function () {
+                helpZone.hide().html(content).val(content);
+                show.call(input);
+            })
         },
         
         /**
