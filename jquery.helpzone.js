@@ -1,3 +1,28 @@
+/**
+ * Custom jquery plugin for binding inputs title attribute to display in a specified zone.
+ * Usage minimum: $("input[type='text']").helpzone({target: $("#helpzone"));
+ * This will make by default each input's title attribute be the content displayed in $("#helpzone") on focus
+ * It can be customized with various options, including:
+ *  - event: which event trigger the display to the helpzone (default: focus)
+ *  - suppress: wether to remove the title attributes as title attributes are always shown on hover by the browser (default: true)
+ *  - show/hide: callback functions when the old content is hidden and new content shown.
+ *          Context is the current input element and the targetZone is passed as param.
+ *          Supports animations by using .promise() internally.
+ *          (default: null)
+ *  - content: function to call to get the new content to display.
+ *          Context is the current input element.
+ *          (default: get the title attribute content of the input)
+ *  - beforeUpdate: callback function called before the new content is displayed.
+ *          The display can be canceled by returning false.
+ *          Params passed are the helpZone target and the newContent as string.
+ *
+ * Event:
+ * The custom jquery event "helpzonebeforeupdate" is also triggered when about to display the new content.
+ * As with beforeUpdate callback, the display can be prevented by calling .preventDefault().
+ *
+ * @author Lanoux Fabien
+ */
+
 (function( factory ) {
 	if ( typeof define === "function" && define.amd ) {
 		// AMD. Register as an anonymous module.
@@ -19,17 +44,17 @@
             zone: $("<div/>"), // target jquery element where to display the data content
             event: 'focus', // on which event we want to display the data content
             suppress: true, // boolean to tell if we want to remove title attribute or not
-            show: null,
-            hide: null,
-            content: function (input) { // function that get the content to display
-                var title = input.attr("oldtitle"); // oldtitle contains original title attribute
+            show: null, // callback when new content is being shown
+            hide: null, // callback when old content is being hidden
+            content: function () { // function that get the content to display
+                var title = $(this).attr("oldtitle"); // oldtitle contains original title attribute
                 if (typeof title === 'undefined') { // in case suprress option is false
-                    title = input.attr("title");
+                    title = $(this).attr("title");
                 }
                 return title;
             },
             beforeUpdate: null // callback to call before target zone is updated.
-                // Params object: { helpzone: the jquery helpzone element, newcontent: string the new content }
+                // Params object: { helpzoneTarget: the jquery helpzone element, newContent: string the new content }
         };
     }
 
@@ -59,10 +84,10 @@
             }
             var inst = {
                 options: $.extend({}, this._defaults),
-                initialContent: options.zone.html()
+                initialContent: options.zone.html() // keep initial content to restore it if needed
             };
             input.addClass(this.markerClassNameSource)
-                    .data(this.propertyName, inst);
+                    .data(this.propertyName, inst); // jquery plugin way of storing the custom plugin instance
 
             this._optionPlugin(input, options);
         },
@@ -94,12 +119,15 @@
             }
             /* end of boilerplate code */
             if (options.zone) {
-                if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
-                    inst.options.zone.removeClass(this.markerClassNameTarget)
+                if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) { // only one helpzone used ?
+                    inst.options.zone.removeClass(this.markerClassNameTarget) // set back to initial state
                         .html(inst.initialContent);
                 }
+                // format the new one
                 options.zone.addClass(this.markerClassNameTarget);
                 if (options.zone.children("." + this.markerClassNameWrapper).length === 0) {
+                    // we add a wrapper inside the helpzone. This will be also very usefull when we allow the user
+                    // to add custom show/hide callbacks for animation
                     options.zone.children().wrapAll("<div class='" + this.markerClassNameWrapper + "'>");
                 }
             }
@@ -110,15 +138,15 @@
             
             // from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
-                var eventParams = {
+                var eventParams = { // object passed as params of custom event
                     helpzoneTarget: inst.options.zone.children("." + this.markerClassNameWrapper),
-                    newContent: inst.options.content(input)
+                    newContent: inst.options.content.call(input[0])
                 };
                 var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
                 
                 beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
-                    inst.options.beforeUpdate.call(input, beforeUpdateEvent, eventParams);
+                    inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams);
                 }
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
@@ -149,7 +177,8 @@
         },
 
         /**
-         * Update content immediately from custom content if present or from calling the content callback otherwise
+         * Update content immediately from custom content if present or from calling the content callback otherwise.
+         * Does not call beforeUpdate() nor trigger helpzonebeforeupdate custom Event.
          * @param {element} input the input element the helpzone refers to
          * @param {String} content string
          */
@@ -160,25 +189,27 @@
                 return;
             }
             var inst = input.data(this.propertyName);
-            content = content || inst.options.content(input);
+            content = content || inst.options.content.call(input[0]);
             this._updateHelpZoneContent(input, inst, content);
         },
 
         /**
-         * update content into the target zone
-         * @param {jQuery} helpZone the target zone
+         * Update content into the target zone.
+         * It supports adding animation from custom show/hide callbacks by using .promise().
+         * @param {jQuery} input the jquery input element
+         * @param {Object} inst the plugin instance
          * @param {String} content the html content as string to set in the target zone
         */
         _updateHelpZoneContent: function (input, inst, content) {
             var zoneTarget = inst.options.zone.children("." + this.markerClassNameWrapper);
 
-            (inst.options.hide || $.noop).call(input, zoneTarget);
+            (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
 
-            zoneTarget.promise().done(function () {
-                zoneTarget.hide().html(content).val(content);
-                (inst.options.show || $.noop).call(input, zoneTarget);
-                zoneTarget.promise().done(function () {
-                    zoneTarget.show();
+            zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
+                zoneTarget.hide().html(content).val(content); // display none before setting new content
+                (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
+                zoneTarget.promise().done(function () { // once shown animation done (resolved instantly if no animation)
+                    zoneTarget.show(); // now we can really show
                 }); 
             })
         },
@@ -196,7 +227,7 @@
         },
         
         /**
-         * Get the content to be added to the helrzone
+         * Get the content to be added to the helpzone
          * @param {element} input the input we want the content from
          * @returns {String} the htmlString of the content
          */
@@ -207,7 +238,7 @@
                 return;
             }
             var inst = input.data(this.propertyName);
-            return inst.options.content(input);
+            return inst.options.content.call(input[0]);
         },
 
         /**
@@ -231,8 +262,7 @@
             }
 
             if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
-                inst.options.zone.removeClass(this.markerClassNameTarget);
-                this._updateHelpZoneContent(inst.options.zone, inst.initialContent);
+                inst.options.zone.removeClass(this.markerClassNameTarget).html(inst.initialContent);
             }
         }
     });
