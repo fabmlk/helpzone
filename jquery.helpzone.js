@@ -168,10 +168,13 @@
         _updateHelpZoneContent: function (input, helpZone, content, show, hide) {
             show = show || $.noop;
             hide = hide || $.noop;
-            hide.call(input);
+            hide.call(input, helpZone);
             helpZone.promise().done(function () {
                 helpZone.hide().html(content).val(content);
-                show.call(input);
+                show.call(input, helpZone);
+                helpZone.promise().done(function () {
+                    helpZone.show();
+                }); 
             })
         },
         
