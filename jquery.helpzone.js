@@ -196,6 +196,9 @@
         /**
          * Update content into the target zone.
          * It supports adding animation from custom show/hide callbacks by using .promise().
+         * Ex: $("input").helpzone("option", "show", function (targetZone) {
+         *  targetZone.fadeIn(800);
+         * });
          * @param {jQuery} input the jquery input element
          * @param {Object} inst the plugin instance
          * @param {String} content the html content as string to set in the target zone
