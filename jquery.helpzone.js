@@ -38,8 +38,9 @@
     // markerClassName & propertyName sont des noms souvent rencontrés dans les plugins jQuery
     $.extend(HelpZone.prototype, {
         markerClassNameSource: 'fab-hasSourceHelpZone', // tag l'input comme etant attaché au plugin
-        propertyName: 'fab-sourcehelpzone', // data attribute où on pourra retrouver l'instance de notre plugin
+        propertyName: 'fab-helpzone-source', // data attribute où on pourra retrouver l'instance de notre plugin
         markerClassNameTarget: 'fab-hasTargetHelpZone',
+        markerClassNameWrapper: 'fab-helpzone-wrapper',
         
         // on définit une méthode pour setter global default options (remplacer nos default options pour tout le monde)
         // On l'évoque alors avant d'initializer le plugin pour un element via: $.helpzone.setDefaults({zone: ...., event: ....})
@@ -94,10 +95,11 @@
             /* end of boilerplate code */
             if (options.zone) {
                 if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
-                    inst.options.zone.removeClass(this.markerClassNameTarget);
-                    this._updateHelpZoneContent(input, inst.options.zone, inst.options.initialContent, inst.options.show, inst.options.hide);
+                    inst.options.zone.removeClass(this.markerClassNameTarget)
+                        .html(inst.options.initialContent);
                 }
-                options.zone.addClass(this.markerClassNameTarget);
+                options.zone.addClass(this.markerClassNameTarget)
+                    .append("<div class='" + this.markerClassNameWrapper + "'>");
             }
             
             input.off(inst.options.event + '.' + this.propertyName);
@@ -107,8 +109,8 @@
             // from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 var eventParams = {
-                    helpzone: inst.options.zone,
-                    newcontent: inst.options.content(input)
+                    helpzoneTarget: inst.options.zone.children("." + this.markerClassNameWrapper),
+                    newContent: inst.options.content(input)
                 };
                 var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
                 
@@ -119,7 +121,7 @@
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
                 if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                    plugin._updateHelpZoneContent(inst.options.zone, eventParams.newcontent);
+                    plugin._updateHelpZoneContent(input, inst, eventParams.newcontent);
                 }
             });
 			
@@ -157,7 +159,7 @@
             }
             var inst = input.data(this.propertyName);
             content = content || inst.options.content(input);
-            this._updateHelpZoneContent(input, inst.options.zone, content, inst.options.show, inst.options.hide);
+            this._updateHelpZoneContent(input, inst, content);
         },
 
         /**
@@ -165,15 +167,16 @@
          * @param {jQuery} helpZone the target zone
          * @param {String} content the html content as string to set in the target zone
         */
-        _updateHelpZoneContent: function (input, helpZone, content, show, hide) {
-            show = show || $.noop;
-            hide = hide || $.noop;
-            hide.call(input, helpZone);
-            helpZone.promise().done(function () {
-                helpZone.hide().html(content).val(content);
-                show.call(input, helpZone);
-                helpZone.promise().done(function () {
-                    helpZone.show();
+        _updateHelpZoneContent: function (input, inst, content) {
+            var zoneTarget = inst.options.zone.children("." + this.markerClassNameWrapper);
+
+            (inst.options.hide || $.noop).call(input, zoneTarget);
+
+            zoneTarget.promise().done(function () {
+                zoneTarget.hide().html(content).val(content);
+                (inst.options.show || $.noop).call(input, zoneTarget);
+                zoneTarget.promise().done(function () {
+                    zoneTarget.show();
                 }); 
             })
         },
@@ -191,7 +194,7 @@
         },
         
         /**
-         * Get the content to be added to the helpzone
+         * Get the content to be added to the helrzone
          * @param {element} input the input we want the content from
          * @returns {String} the htmlString of the content
          */
