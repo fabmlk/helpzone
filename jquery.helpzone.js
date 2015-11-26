@@ -128,7 +128,7 @@
                 if (options.zone.children("." + this.markerClassNameWrapper).length === 0) {
                     // we add a wrapper inside the helpzone. This will be also very usefull when we allow the user
                     // to add custom show/hide callbacks for animation
-                    (options.zone.children().length) ? options.zone.children().wrapAll : options.zone.append)("<div class='" + this.markerClassNameWrapper + "'>");
+                    (options.zone.children().length ? options.zone.children().wrapAll : options.zone.append)("<div class='" + this.markerClassNameWrapper + "'>");
                 }
             }
             
