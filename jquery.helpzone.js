@@ -142,7 +142,8 @@
             // from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 var eventParams = { // object passed as params of custom event
-                    helpzoneTarget: inst.options.zone.children("." + this.markerClassNameWrapper),
+                    // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
+                    helpzoneTarget: inst.options.zone.find("." + plugin.markerClassNameWrapper),
                     newContent: inst.options.content.call(input[0])
                 };
                 var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
@@ -207,8 +208,8 @@
          * @param {String} content the html content as string to set in the target zone
         */
         _updateHelpZoneContent: function (input, inst, content) {
-            var zoneTarget = inst.options.zone.children("." + this.markerClassNameWrapper);
-
+            // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
+            var zoneTarget = inst.options.zone.find("." + this.markerClassNameWrapper);
             (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
 
             zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
