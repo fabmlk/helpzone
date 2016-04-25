@@ -1,5 +1,5 @@
 {
-  "name": "helpzone",
+  "name": "jquery-helpzone",
   "version": "1.0.0",
   "description": "lightweight jquery plugin to show content of input attribute to target zone",
   "main": "jquery.helpzone.js",
