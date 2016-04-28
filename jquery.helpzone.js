@@ -214,17 +214,18 @@
         _updateHelpZoneContent: function (input, inst, content) {
             // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
             var zoneTarget = inst.options.zone.find("." + this.markerClassNameWrapper);
-            (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
+            var mightBePromise = (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
 
-            zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
+            $.when(mightBePromise, zoneTarget.promise()).done(function () { // once hidden animation done (resolved instantly if no animation)
                 zoneTarget.hide().html(content).val(content); // display none before setting new content
 		(inst.options.afterHide || $.noop).call(input[0], zoneTarget); 
-                (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
-                zoneTarget.promise().done(function () { // once shown animation done (resolved instantly if no animation)
+
+                mightBePromise = (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
+                $.when(mightBePromise, zoneTarget.promise()).done(function () { // once shown animation done (resolved instantly if no animation)
                     zoneTarget.show(); // now we can really show
 		    (inst.options.afterShow || $.noop).call(input[0], zoneTarget);
                 }); 
-            })
+            });
         },
         
         /**
