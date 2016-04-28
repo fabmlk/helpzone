@@ -9,6 +9,8 @@
  *          Context is the current input element and the targetZone is passed as param.
  *          Supports animations by using .promise() internally.
  *          (default: null)
+ *  - afterShow/afterHide: callback functions when the old content has been hidden and new content shown.
+ *	    Context is the current input element and the targetZone is passed as param 
  *  - content: function to call to get the new content to display.
  *          Context is the current input element.
  *          (default: get the title attribute content of the input)
@@ -46,6 +48,8 @@
             suppress: true, // boolean to tell if we want to remove title attribute or not
             show: null, // callback when new content is being shown
             hide: null, // callback when old content is being hidden
+	    afterShow: null, // callback when new content has been shown
+	    afterHide: null, // callback when old content has been hidden
             content: function () { // function that get the content to display
                 var title = $(this).attr("oldtitle"); // oldtitle contains original title attribute
                 if (typeof title === 'undefined') { // in case suprress option is false
@@ -214,9 +218,11 @@
 
             zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
                 zoneTarget.hide().html(content).val(content); // display none before setting new content
+		(inst.options.afterHide || $.noop).call(input[0], zoneTarget); 
                 (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
                 zoneTarget.promise().done(function () { // once shown animation done (resolved instantly if no animation)
                     zoneTarget.show(); // now we can really show
+		    (inst.options.afterShow || $.noop).call(input[0], zoneTarget);
                 }); 
             })
         },
