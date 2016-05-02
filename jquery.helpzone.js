@@ -206,6 +206,11 @@
          * It supports adding animation from custom show/hide callbacks by using .promise().
          * Ex: $("input").helpzone("option", "show", function (targetZone) {
          *  targetZone.fadeIn(800);
+	 *  /* or using jquery queue for custom animation */
+	 *  targetZone.queue(function (next) { 
+	 *    // custom animation code...
+	 *    next();
+	 *   }); 
          * });
          * @param {jQuery} input the jquery input element
          * @param {Object} inst the plugin instance
