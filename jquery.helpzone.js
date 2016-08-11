@@ -57,7 +57,7 @@
                 }
                 return title;
             },
-            beforeUpdate: null // callback to call before target zone is updated.
+            beforeUpdate: null // callback to call before target zone is updated. Cancel update if returns false (do not trigger helpzonebeforeupdate event)
                 // Params object: { helpzoneTarget: the jquery helpzone element, newContent: string the new content }
         };
     }
@@ -159,7 +159,9 @@
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
                 if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                    plugin._updateHelpZoneContent(input, inst, eventParams.newContent);
+                    if (plugin._updateHelpZoneContent(input, inst, eventParams.newContent)) {
+                        return;
+                    }
                 }
             });
 			
