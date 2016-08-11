@@ -154,14 +154,14 @@
                 
                 beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
                 if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
-                    inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams);
+                    if (inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams) === false) { //cancel if returns false
+                        return;
+                    }
                 }
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
                 if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                    if (plugin._updateHelpZoneContent(input, inst, eventParams.newContent)) {
-                        return;
-                    }
+                    plugin._updateHelpZoneContent(input, inst, eventParams.newContent);
                 }
             });
 			
