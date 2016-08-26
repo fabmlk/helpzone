@@ -1,6 +1,7 @@
 /**
  * Custom jquery plugin for binding inputs title attribute to display in a specified zone.
- * Usage minimum: $("input[type='text']").helpzone({target: $("#helpzone"));
+ * Usage minimum: $("input[type='text']").helpzone({zones: $("#helpzone"));
+ *
  * This will make by default each input's title attribute be the content displayed in $("#helpzone") on focus
  * It can be customized with various options, including:
  *  - event: which event trigger the display to the helpzone (default: focus)
@@ -21,6 +22,12 @@
  * Event:
  * The custom jquery event "helpzonebeforeupdate" is also triggered when about to display the new content.
  * As with beforeUpdate callback, the display can be prevented by calling .preventDefault().
+ *
+ * NEW: can now accept a jquery collection to update multiple zones at the same time:
+ *      $("input[type='text']").helpzone({zones: $("#leftZone, #rightZone")});
+ *
+ * This will update both #leftZone & #rightZone with the same content. For now, it is impossible to
+ * have different content for different helpzones => TODO
  *
  * @author Lanoux Fabien
  */
@@ -43,13 +50,13 @@
     // singleton pattern for jquery plugin best practice
     function HelpZone () {
         this._defaults = {
-            zone: $("<div/>"), // target jquery element where to display the data content
+            zones: $("<div/>"), // target jquery collection where to display the data content (support multiple zones)
             event: 'focus', // on which event we want to display the data content
             suppress: true, // boolean to tell if we want to remove title attribute or not
             show: null, // callback when new content is being shown
             hide: null, // callback when old content is being hidden
-	    afterShow: null, // callback when new content has been shown
-	    afterHide: null, // callback when old content has been hidden
+	        afterShow: null, // callback when new content has been shown
+	        afterHide: null, // callback when old content has been hidden
             content: function () { // function that get the content to display
                 var title = $(this).attr("oldtitle"); // oldtitle contains original title attribute
                 if (typeof title === 'undefined') { // in case suprress option is false
@@ -57,7 +64,7 @@
                 }
                 return title;
             },
-            beforeUpdate: null // callback to call before target zone is updated. Cancel update if returns false (do not trigger helpzonebeforeupdate event)
+            beforeUpdate: null // callback to call before target zones are updated. Cancel update if returns false (do not trigger helpzonebeforeupdate event)
                 // Params object: { helpzoneTarget: the jquery helpzone element, newContent: string the new content }
         };
     }
@@ -88,7 +95,9 @@
             }
             var inst = {
                 options: $.extend({}, this._defaults),
-                initialContent: options.zone.html() // keep initial content to restore it if needed
+                initialContent: (options.zones || this._defaults.zones).map(function () {
+                    return $(this).html()
+                }) // keep initial content to restore it if needed
             };
             input.addClass(this.markerClassNameSource)
                     .data(this.propertyName, inst); // jquery plugin way of storing the custom plugin instance
@@ -122,21 +131,23 @@
                 options[name] = value;
             }
             /* end of boilerplate code */
-            if (options.zone) {
-                if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) { // only one helpzone used ?
-                    inst.options.zone.removeClass(this.markerClassNameTarget) // set back to initial state
-                        .html(inst.initialContent);
-                }
+            if (options.zones) {
+                options.zones = $.isArray(options.zones) ? this._convertArrayToCollection(options.zones) : options.zones;
+                this._resetHelpzonesDefaults(input, inst);
+
                 // format the new one
-                options.zone.addClass(this.markerClassNameTarget);
-                if (options.zone.children("." + this.markerClassNameWrapper).length === 0) {
-                    // we add a wrapper inside the helpzone. This will be also very usefull when we allow the user
-                    // to add custom show/hide callbacks for animation
-                    options.zone.children().length ? // if has children, wrap with wrapper
-                        options.zone.children().wrapAll("<div class='" + this.markerClassNameWrapper + "'>")
-                        // else simply append wrapper
-                        : options.zone.append("<div class='" + this.markerClassNameWrapper + "'>");
-                }
+                options.zones.addClass(this.markerClassNameTarget);
+                $.each(options.zones, function (i, zone) {
+                    var zone = $(zone);
+                    if (zone.children("." + this.markerClassNameWrapper).length === 0) {
+                        // we add a wrapper inside the helpzone. This will be also very usefull when we allow the user
+                        // to add custom show/hide callbacks for animation
+                        zone.children().length ? // if has children, wrap with wrapper
+                            zone.children().wrapAll("<div class='" + plugin.markerClassNameWrapper + "'>")
+                            // else simply append wrapper
+                            : zone.append("<div class='" + plugin.markerClassNameWrapper + "'>");
+                    }
+                });
             }
             
             input.off(inst.options.event + '.' + this.propertyName);
@@ -147,7 +158,7 @@
             input.on(inst.options.event + '.' + this.propertyName, function () {
                 var eventParams = { // object passed as params of custom event
                     // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-                    helpzoneTarget: inst.options.zone.find("." + plugin.markerClassNameWrapper),
+                    targetHelpzones: inst.options.zones.find("." + plugin.markerClassNameWrapper),
                     newContent: inst.options.content.call(input[0])
                 };
                 var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
@@ -161,7 +172,7 @@
 
                 input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
                 if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                    plugin._updateHelpZoneContent(input, inst, eventParams.newContent);
+                    plugin._updateHelpZonesContent(input, inst, eventParams.newContent);
                 }
             });
 			
@@ -169,10 +180,22 @@
             if (inst.options.suppress) {
                 this._switchAttribute(input[0], "title", "oldtitle");
             }
-            
-            if (!inst.options.zone.length) { // if zone not in DOM, append to end of body
-                $('body').append(inst.options.zone);
-            }
+
+            $.each(inst.options.zones, function (i, zone) {
+                var zone = $(zone);
+                if (!zone.length) { // if zone not in DOM, append to end of body
+                    $('body').append(zone);
+                }
+            });
+        },
+
+        /**
+         * Convert an array of jquery objects to a jquery collection
+         * @param array - the array to convert
+         * @returns {jQuery Collection}
+         */
+        _convertArrayToCollection: function (array) {
+            return $(array).map($.fn.toArray);
         },
 
         /**
@@ -200,52 +223,81 @@
             }
             var inst = input.data(this.propertyName);
             content = content || inst.options.content.call(input[0]);
-            this._updateHelpZoneContent(input, inst, content);
+            this._updateHelpZonesContent(input, inst, content);
         },
 
         /**
-         * Update content into the target zone.
-         * It supports adding animation from custom show/hide callbacks by using .promise().
-         * Ex: $("input").helpzone("option", "show", function (targetZone) {
-         *  targetZone.fadeIn(800);
-	 *  /* or using jquery queue for custom animation * /
-	 *  targetZone.queue(function (next) { 
-	 *    // custom animation code...
-	 *    next();
-	 *   }); 
-         * });
-         * @param {jQuery} input the jquery input element
-         * @param {Object} inst the plugin instance
-         * @param {String} content the html content as string to set in the target zone
+        * Update content into the target zone.
+        * It supports adding animation from custom show/hide callbacks by using .promise().
+        * Ex: $("input").helpzone("option", "show", function (targetZone) {
+        *  targetZone.fadeIn(800);
+        *  /* or using jquery queue for custom animation * /
+        *  targetZone.queue(function (next) {
+        *    // custom animation code...
+        *    next();
+        *   });
+        * });
+        * @param {jQuery} input the jquery input element
+        * @param {Object} inst the plugin instance
+        * @param {String} content the html content as string to set in the target zone
         */
-        _updateHelpZoneContent: function (input, inst, content) {
-            // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-            var zoneTarget = inst.options.zone.find("." + this.markerClassNameWrapper);
-            (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
+        _updateHelpZonesContent: function (input, inst, content) {
+            inst.options.zones.each(function () {
+                // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
+                var targetZone = $(this).find("." + plugin.markerClassNameWrapper);
+                (inst.options.hide || $.noop).call(input[0], targetZone); // call hide callback
 
-            zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
-                zoneTarget.hide().html(content).val(content); // display none before setting new content
-		(inst.options.afterHide || $.noop).call(input[0], zoneTarget); 
-                (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
-                zoneTarget.promise().done(function () { // once shown animation done (resolved instantly if no animation)
-                    zoneTarget.show(); // now we can really show
-		    (inst.options.afterShow || $.noop).call(input[0], zoneTarget);
-                }); 
-            })
-        },
-        
-        /**
-         * Get all inputs attached with the plugin sharing the same helpZone as the input passed in argument
-         * @param {element} input the input reference targetting the shared zone
-         * @return {jQuery} a collection of 0 or more inputs sharing the helpZone
-        */
-        _getOtherSourcesWithSameHelpZoneTarget: function (input) {
-            input = $(input);
-            return $("." + this.markerClassNameSource).not(input).filter(function () {
-                return $(this).data(plugin.propertyName).options.zone[0] === $(input).data(plugin.propertyName).options.zone[0];
+                targetZone.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
+
+                    targetZone.hide().html(content).val(content); // display none before setting new content
+                    (inst.options.afterHide || $.noop).call(input[0], targetZone);
+                    (inst.options.show || $.noop).call(input[0], targetZone); // call show callback
+
+                    targetZone.promise().done(function () { // once shown animation done (resolved instantly if no animation)
+                        targetZone.show(); // now we can really show
+                        (inst.options.afterShow || $.noop).call(input[0], targetZone);
+                    });
+                })
             });
         },
         
+        /**
+         * Get all help zones only in use by the input passed in argument
+         * @param {element} input the input reference targetting the shared zone
+         * @return {jQuery} a collection of 0 or more help zones that are not shared with any other input sources
+        */
+        _getHelpzonesOnlyUsedByInputSource: function (input) {
+            input = $(input);
+            var thisInputZones = input.data(plugin.propertyName).options.zones;
+            var differentInputZones = $();
+
+            $("." + this.markerClassNameSource).not(input).filter(function () {
+                var candidateInputZonesArray = $(this).data(plugin.propertyName).options.zones.toArray();
+
+                differentInputZones.add(thisInputZones.filter(function (index) {
+                    return candidateInputZonesArray.indexOf(thisInputZones[index]) === -1;
+                }));
+
+            });
+
+            return differentInputZones.length ? differentInputZones : thisInputZones;
+        },
+
+        /**
+         * Considering the input in argument, look for each of its associated zones and restore original
+         * if any of them is not used by another source input
+         * @param input the source input
+         * @param inst the instance plugin
+         */
+        _resetHelpzonesDefaults: function (input, inst) {
+            // restore to initial state
+            this._getHelpzonesOnlyUsedByInputSource(input[0])
+                .removeClass(this.markerClassNameTarget)
+                .each(function (i) {
+                    $(this).html(inst.initialContent[i]);
+                });
+        },
+
         /**
          * Get the content to be added to the helpzone
          * @param {element} input the input we want the content from
@@ -273,16 +325,14 @@
             }
             var inst = input.data(this.propertyName);
 
+            this._resetHelpzonesDefaults(input, inst);
+
             input.removeClass(this.markerClassNameSource);
             input.removeData(this.propertyName);
             input.off(inst.options.event + '.' + this.propertyName);
-						
+
             if (inst.options.suppress) {
                 this._switchAttribute(input[0], "oldtitle", "title");
-            }
-
-            if (this._getOtherSourcesWithSameHelpZoneTarget(input[0]).length === 0) {
-                inst.options.zone.removeClass(this.markerClassNameTarget).html(inst.initialContent);
             }
         }
     });

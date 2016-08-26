@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script src="./jquery.helpzone.js"></script>
+<script>
+$(function () {
+	$("input").helpzone({
+		zones: $("#helpzone1, #helpzone2"),
+		beforeUpdate: function () {
+			alert("no no");
+			return false;
+		}
+
+	});
+});
+</script>
+<style>
+#helpzone1 {
+	width: 500px;
+	height: 300px;
+	background-color: orange;
+}
+
+#helpzone2 {
+	width: 200px;
+	height: 300px;
+	background-color: blue;
+	color: #fff;
+}
+
+</style>
+</head>
+<body>
+<input type="text" name="input" title="demonstration" />
+<div id="helpzone1">
+</div>
+<div id="helpzone2">
+</body>
+</html>
