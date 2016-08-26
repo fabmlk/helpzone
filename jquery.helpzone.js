@@ -65,7 +65,7 @@
                 return title;
             },
             beforeUpdate: null // callback to call before target zones are updated. Cancel update if returns false (do not trigger helpzonebeforeupdate event)
-                // Params object: { helpzoneTarget: the jquery helpzone element, newContent: string the new content }
+                // Params object: { targetHelpzones: the jquery helpzone collection, newContent: string the new content }
         };
     }
 
@@ -156,7 +156,7 @@
 
             // from now on options have been merged
             input.on(inst.options.event + '.' + this.propertyName, function () {
-                plugin._beforeUpdateHelpZoneContent(input, inst);
+                plugin._beforeUpdateHelpZonesContent(input, inst);
             });
 
             // store but remove title attribute because we don't want to see it on hover
@@ -182,34 +182,40 @@
         },
 
         /**
-         * Call beforeUpdate callback and trigger beforeUpdateEvent before actual update
-         * if not canceled.
+         * Update content into the target zone.
+         * It supports adding animation from custom show/hide callbacks by using .promise().
+         * Ex: $("input").helpzone("option", "show", function (targetZone) {
+        *  targetZone.fadeIn(800);
+        *  /* or using jquery queue for custom animation * /
+        *  targetZone.queue(function (next) {
+        *    // custom animation code...
+        *    next();
+        *   });
+        * });
          * @param {jQuery} input the jquery input element
          * @param {Object} inst the plugin instance
-         * @param {String} (optional) content the html content as string to set in the target zone
-         * @private
+         * @param {String} content the html content as string to set in the target zone
          */
-        _beforeUpdateHelpZoneContent: function (input, inst, content) {
-            var eventParams = { // object passed as params of custom event
+        _updateHelpZonesContent: function (input, inst, content) {
+            inst.options.zones.each(function () {
                 // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-                targetHelpzones: inst.options.zones.find("." + plugin.markerClassNameWrapper),
-                newContent: inst.options.content.call(input[0])
-            };
+                var targetZone = $(this).find("." + plugin.markerClassNameWrapper);
+                (inst.options.hide || $.noop).call(input[0], targetZone); // call hide callback
 
-            var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
+                targetZone.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
 
-            beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
-            if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
-                if (inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams) === false) { //cancel if returns false
-                    return;
-                }
-            }
+                    targetZone.hide().html(content).val(content); // display none before setting new content
+                    (inst.options.afterHide || $.noop).call(input[0], targetZone);
+                    (inst.options.show || $.noop).call(input[0], targetZone); // call show callback
 
-            input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
-            if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                plugin._updateHelpZoneContent(input, inst, eventParams.newContent);
-            }
+                    targetZone.promise().done(function () { // once shown animation done (resolved instantly if no animation)
+                        targetZone.show(); // now we can really show
+                        (inst.options.afterShow || $.noop).call(input[0], targetZone);
+                    });
+                })
+            });
         },
+
 
         /**
          * Put oldName attribute content into newName attribute and remove oldName attribute
@@ -237,74 +243,40 @@
             var inst = input.data(this.propertyName);
 
             content = content || inst.options.content.call(input[0]);
-            this._beforeUpdateHelpZoneContent(input, inst, content);
+            this._beforeUpdateHelpZonesContent(input, inst, content);
         },
 
-        /**
-        * Update content into the target zone.
-        * It supports adding animation from custom show/hide callbacks by using .promise().
-        * Ex: $("input").helpzone("option", "show", function (targetZone) {
-        *  targetZone.fadeIn(800);
-        *  /* or using jquery queue for custom animation * /
-        *  targetZone.queue(function (next) {
-        *    // custom animation code...
-        *    next();
-        *   });
-        * });
-        * @param {jQuery} input the jquery input element
-        * @param {Object} inst the plugin instance
-        * @param {String} content the html content as string to set in the target zone
-        */
-        _updateHelpZonesContent: function (input, inst, content) {
-            inst.options.zones.each(function () {
-                // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-                var targetZone = $(this).find("." + plugin.markerClassNameWrapper);
-                (inst.options.hide || $.noop).call(input[0], targetZone); // call hide callback
-
-                targetZone.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
-
-                    targetZone.hide().html(content).val(content); // display none before setting new content
-                    (inst.options.afterHide || $.noop).call(input[0], targetZone);
-                    (inst.options.show || $.noop).call(input[0], targetZone); // call show callback
-
-                    targetZone.promise().done(function () { // once shown animation done (resolved instantly if no animation)
-                        targetZone.show(); // now we can really show
-                        (inst.options.afterShow || $.noop).call(input[0], targetZone);
-                    });
-                })
-            });
-        },
 
         /**
-         * Update content into the target zone.
-         * It supports adding animation from custom show/hide callbacks by using .promise().
-         * Ex: $("input").helpzone("option", "show", function (targetZone) {
-         *  targetZone.fadeIn(800);
-            *  /* or using jquery queue for custom animation * /
-         *  targetZone.queue(function (next) {
-	     *    // custom animation code...
-	     *    next();
-	     *   });
-         * });
+         * Call beforeUpdate callback and trigger beforeUpdateEvent before actual update
+         * if not canceled.
          * @param {jQuery} input the jquery input element
          * @param {Object} inst the plugin instance
-         * @param {String} content the html content as string to set in the target zone
+         * @param {String} (optional) content the html content as string to set in the target zone
+         * @private
          */
-        _updateHelpZoneContent: function (input, inst, content) {
-            // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-            var zoneTarget = inst.options.zone.find("." + this.markerClassNameWrapper);
-            (inst.options.hide || $.noop).call(input[0], zoneTarget); // call hide callback
+        _beforeUpdateHelpZonesContent: function (input, inst, content) {
+            var eventParams = { // object passed as params of custom event
+                // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
+                targetHelpzones: inst.options.zones.find("." + plugin.markerClassNameWrapper),
+                newContent: inst.options.content.call(input[0])
+            };
 
-            zoneTarget.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
-                zoneTarget.hide().html(content).val(content); // display none before setting new content
-                (inst.options.afterHide || $.noop).call(input[0], zoneTarget);
-                (inst.options.show || $.noop).call(input[0], zoneTarget); // call show callback
-                zoneTarget.promise().done(function () { // once shown animation done (resolved instantly if no animation)
-                    zoneTarget.show(); // now we can really show
-                    (inst.options.afterShow || $.noop).call(input[0], zoneTarget);
-                });
-            })
+            var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
+
+            beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
+            if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
+                if (inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams) === false) { //cancel if returns false
+                    return;
+                }
+            }
+
+            input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
+            if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
+                plugin._updateHelpZonesContent(input, inst, eventParams.newContent);
+            }
         },
+
 
         /**
          * Get all help zones only in use by the input passed in argument
