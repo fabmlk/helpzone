@@ -1,33 +1,42 @@
 /**
- * Custom jquery plugin for binding inputs title attribute to display in a specified zone.
- * Usage minimum: $("input[type='text']").helpzone({zones: $("#helpzone"));
+ * Custom jquery plugin for binding elements title attribute to display in a specified zone.
+ * Usage minimum: $(".someclass").helpzone();
  *
- * This will make by default each input's title attribute be the content displayed in $("#helpzone") on focus
- * It can be customized with various options, including:
+ * This will make by default each element's title attribute be the content displayed in a new block element appended to the body
+ * on focus.
+ * Typically, we want to specify a specific element for the helpzone to be displayed.
+ * 2 ways are supported:
+ *  - from zones options: $(".someclass").helpzone({ zones: $(".helpzone") });
+ *  - from html5 data attributes: <div class="someclass" data-helpzone-zones-refs=".helpzone" />
+ *    The content of the data-helpzone-refs is a selector, the same way it would appear if usd from zones options.
+ * If both methods are used for the same object, the zones options take precedence.
+ *
+ * The plugin support multiple helpzones bound to the same element:
+ *  - from zones options: $(".someclass").helpzone({ zones: $(".helpzone1, .helpzone2") })
+ *          (optionally an array can be used instead: { zones: [$(".helpzone1"), $(".helpzone2)] }
+ *  - from html5 data attributes: <div class"=someclass" data-helpzone-zones-refs=".helpzone1, .helpzone2" />
+ *
+ * It is also possible for an element to reference the title attribute of another element to avoid duplication:
+ *  <div class="elt1" title="I am some content to display"></div>
+ *  <div class="elt2" data-helpzone-title-ref=".elt1"></div>
+ *
+ * The plugin can be customized with various options, including:
  *  - event: which event trigger the display to the helpzone (default: focus)
  *  - suppress: wether to remove the title attributes as title attributes are always shown on hover by the browser (default: true)
- *  - show/hide: callback functions when the old content is hidden and new content shown.
- *          Context is the current input element and the targetZone is passed as param.
- *          Supports animations by using .promise() internally.
- *          (default: null)
- *  - afterShow/afterHide: callback functions when the old content has been hidden and new content shown.
- *	    Context is the current input element and the targetZone is passed as param 
+ *  - afterShow: callback functions when the new content has been shown.
+ *	    Context is the current source element and the targetZone is passed as param 
  *  - content: function to call to get the new content to display.
- *          Context is the current input element.
- *          (default: get the title attribute content of the input)
+ *          Context is the current source element.
+ *          (default: get the title attribute content of the source or specified in data-helpzone-title-ref)
  *  - beforeUpdate: callback function called before the new content is displayed.
  *          The display can be canceled by returning false.
- *          Params passed are the helpZone target and the newContent as string.
+ *          Params passed are the helpZone target, the newContent as string and manualUpdate boolean telling if the update
+ *          was manual via a call to method "update" or automatic after an event.
  *
  * Event:
  * The custom jquery event "helpzonebeforeupdate" is also triggered when about to display the new content.
- * As with beforeUpdate callback, the display can be prevented by calling .preventDefault().
- *
- * NEW: can now accept a jquery collection to update multiple zones at the same time:
- *      $("input[type='text']").helpzone({zones: $("#leftZone, #rightZone")});
- *
- * This will update both #leftZone & #rightZone with the same content. For now, it is impossible to
- * have different content for different helpzones => TODO
+ * As with beforeUpdate callback, the display can be prevented by calling .preventDefault(). The params are the same
+ * as for beforeUpdate callback, this is just an alternative way to do the same thing.
  *
  * @author Lanoux Fabien
  */
@@ -49,23 +58,36 @@
 
     // singleton pattern for jquery plugin best practice
     function HelpZone() {
-        this._defaults = {
+        this.defaults = {
             zones: $("<div/>"), // target jquery collection where to display the data content (support multiple zones)
             event: 'focus', // on which event we want to display the data content
             suppress: true, // boolean to tell if we want to remove title attribute or not
-            show: null, // callback when new content is being shown
-            hide: null, // callback when old content is being hidden
 	        afterShow: null, // callback when new content has been shown
-	        afterHide: null, // callback when old content has been hidden
             content: function () { // function that get the content to display
-                var title = $(this).attr("oldtitle"); // oldtitle contains original title attribute
-                if (typeof title === 'undefined') { // in case suprress option is false
-                    title = $(this).attr("title");
+                var refSelector;
+                var getTitleContent = function ($elt) {
+                    var title = $elt.attr("oldtitle"); // oldtitle contains original title attribute
+                    if (typeof title === 'undefined') { // in case suppress option is false
+                        title = $elt.attr("title");
+                    }
+                    return title;
+                };
+
+                var title = getTitleContent($(this));
+
+                if (typeof title === 'undefined') { // no title? use data-fab-helpzoneRef insead
+                    refSelector = $(this).data(plugin.dataTitleRef);
+                    title = getTitleContent($(refSelector));
                 }
+
                 return title;
             },
-            beforeUpdate: null // callback to call before target zones are updated. Cancel update if returns false (do not trigger helpzonebeforeupdate event)
-                // Params object: { targetHelpzones: the jquery helpzone collection, newContent: string the new content }
+            beforeUpdate: null // callback to call before target zones are updated. Cancel update if returns false
+                               // (do not trigger helpzonebeforeupdate event)
+                               // Params object:
+                               // { targetHelpzones: the jquery helpzone collection,
+                               // newContent: string the new content,
+                               // manualUpdate: boolean - see doc}
         };
     }
 
@@ -73,55 +95,78 @@
     // par conventions, on utilise '_' pour dire qu'une fonction ne doit jamais être evoquées directement par le user mais en interne par notre plugin
     // markerClassName & propertyName sont des noms souvent rencontrés dans les plugins jQuery
     $.extend(HelpZone.prototype, {
-        markerClassNameSource: 'fab-hasSourceHelpZone', // tag l'input comme etant attaché au plugin
+        markerClassNameSource: 'fab-hasSourceHelpZone', // tag source element as being attached to plugin
         propertyName: 'fab-helpzone-source', // data attribute où on pourra retrouver l'instance de notre plugin
-        markerClassNameTarget: 'fab-hasTargetHelpZone',
-        markerClassNameWrapper: 'fab-helpzone-wrapper',
+        markerClassNameTarget: 'fab-hasTargetHelpZone', // mark helpzone as being associated with source
+        dataTitleRef: 'helpzone-title-ref', // data attribute with selector pointing to other element whose title must be used
+        marckerClassNameNotInDOM: 'fab-wasNotInDOM', // if no zones were specified at all, mark the default created zones
+        dataZonesRef: 'helpzone-zones-ref', // data attribute with selector pointing to one or several zones
 
         // on définit une méthode pour setter global default options (remplacer nos default options pour tout le monde)
         // On l'évoque alors avant d'initializer le plugin pour un element via: $.helpzone.setDefaults({zone: ...., event: ....})
         setDefaults: function (options) {
-            $.extend(this._defaults, options || {});
+            $.extend(this.defaults, options || {});
             return this;
         },
 
-        // attach the plugin instance to the data of the input
+        // attach the plugin instance to the data of the source element
         // in this function goes all common code that does not depend on any custom option
-        _attachPlugin: function (input, options) {
-            input = $(input);
+        _attachPlugin: function (source, options) {
+            var htmlDataZonesRef;
 
-            if (input.hasClass(this.markerClassNameSource)) { // already initialized: don't reinitialize plugin
+            source = $(source);
+
+            if (source.hasClass(this.markerClassNameSource)) { // already initialized: don't reinitialize plugin
                 return;
             }
+
+            options.zones = options.zones || this._getZonesFromHtmlDataAttributes(source) || this.defaults.zones;
+
             var inst = {
-                options: $.extend({}, this._defaults),
-                initialContent: (options.zones || this._defaults.zones).map(function () {
+                options: $.extend({}, this.defaults),
+                initialContent: options.zones.map(function () {
                     return $(this).html()
                 }) // keep initial content to restore it if needed
             };
-            input.addClass(this.markerClassNameSource)
+            source.addClass(this.markerClassNameSource)
                 .data(this.propertyName, inst); // jquery plugin way of storing the custom plugin instance
 
-            this._optionPlugin(input, options);
+            this._optionPlugin(source, options);
+        },
+
+        /**
+         * Returns jquery collection of the zones referenced in the element's data attributes
+         * @param source the source element
+         * @returns {*|jQuery|HTMLElement}
+         * @private
+         */
+        _getZonesFromHtmlDataAttributes: function (source) {
+            var htmlDataZonesRefSelectors = source.data(this.dataZonesRef);
+            var htmlDataZoneRefs = $(htmlDataZonesRefSelectors);
+
+            if (htmlDataZonesRefSelectors && !htmlDataZoneRefs.length) { // can't find what the selector tells us ?
+                throw "HTML Data Helpzone reference: '" + htmlDataZonesRefSelectors + "' not found";
+            }
+            return htmlDataZoneRefs;
         },
 
         /**
          * Retrieve or reconfigure the settings for a control.
-         * @param {element} input the element target to affect
+         * @param {element} source the element target to affect
          * @param {object} options the new options for this instance of {String} an individual property value
          * @param {any} value the individual property value (omit if options is an object or to retrive the value of a setting)
          * @returns {any} if retrieving a value
          */
-        _optionPlugin: function (input, options, value) {
+        _optionPlugin: function (source, options, value) {
             /* start of boilerplate code common to most jquery plugins */
-            input = $(input);
-            var inst = input.data(this.propertyName);
+            source = $(source);
+            var inst = source.data(this.propertyName);
             if (!options || (typeof options == 'string' && value == null)) { // Get option
                 var name = options;
                 options = (inst || {}).options;
                 return (options && name ? options[name] : options);
             }
-            if (!input.hasClass(this.markerClassNameSource)) { // check plugin has been initialized
+            if (!source.hasClass(this.markerClassNameSource)) { // check plugin has been initialized
                 return;
             }
             options = options || {};
@@ -133,41 +178,36 @@
             /* end of boilerplate code */
             if (options.zones) {
                 options.zones = $.isArray(options.zones) ? this._convertArrayToCollection(options.zones) : options.zones;
-                this._resetHelpzonesDefaults(input, inst);
+                this._resetHelpzonesDefaults(source, inst);
 
                 // format the new one
                 options.zones.addClass(this.markerClassNameTarget);
-                $.each(options.zones, function (i, zone) {
-                    var zone = $(zone);
-                    if (zone.children("." + this.markerClassNameWrapper).length === 0) {
-                        // we add a wrapper inside the helpzone. This will be also very usefull when we allow the user
-                        // to add custom show/hide callbacks for animation
-                        zone.children().length ? // if has children, wrap with wrapper
-                            zone.children().wrapAll("<div class='" + plugin.markerClassNameWrapper + "'>")
-                            // else simply append wrapper
-                            : zone.append("<div class='" + plugin.markerClassNameWrapper + "'>");
-                    }
-                });
             }
 
-            input.off(inst.options.event + '.' + this.propertyName);
+            source.off(inst.options.event + '.' + this.propertyName);
 
-            $.extend(inst.options, options); // update with new options 
+            $.extend(inst.options, options); // update with new options
 
             // from now on options have been merged
-            input.on(inst.options.event + '.' + this.propertyName, function () {
-                plugin._beforeUpdateHelpZonesContent(input, inst);
+            options.zones = null; // reset options.zones for next loop if called comes from jquery collection
+
+            // bind option event to helpzone update
+            source.on(inst.options.event + '.' + this.propertyName, function () {
+                inst.options.zones.each(function () {
+                    plugin._beforeUpdateHelpZoneContent(source, inst, $(this));
+                })
             });
 
             // store but remove title attribute because we don't want to see it on hover
-            if (inst.options.suppress) {
-                this._switchAttribute(input[0], "title", "oldtitle");
+            if (inst.options.suppress && source[0].title) {
+                this._switchAttribute(source[0], "title", "oldtitle");
             }
 
-            $.each(inst.options.zones, function (i, zone) {
-                var zone = $(zone);
+            // for every non-existing zone in the DOM, append default zone to body
+            inst.options.zones.each(function () {
+                var zone = $(this);
                 if (!zone.length) { // if zone not in DOM, append to end of body
-                    $('body').append(zone);
+                    $('body').append(zone).addClass(plugin.marckerClassNameNotInDOM);
                 }
             });
         },
@@ -183,132 +223,116 @@
 
         /**
          * Update content into the target zone.
-         * It supports adding animation from custom show/hide callbacks by using .promise().
-         * Ex: $("input").helpzone("option", "show", function (targetZone) {
-        *  targetZone.fadeIn(800);
-        *  /* or using jquery queue for custom animation * /
-        *  targetZone.queue(function (next) {
-        *    // custom animation code...
-        *    next();
-        *   });
-        * });
-         * @param {jQuery} input the jquery input element
+
+         * @param {jQuery} source the jquery source element
          * @param {Object} inst the plugin instance
          * @param {String} content the html content as string to set in the target zone
          */
-        _updateHelpZonesContent: function (input, inst, content) {
-            inst.options.zones.each(function () {
-                // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-                var targetZone = $(this).find("." + plugin.markerClassNameWrapper);
-                (inst.options.hide || $.noop).call(input[0], targetZone); // call hide callback
-
-                targetZone.promise().done(function () { // once hidden animation done (resolved instantly if no animation)
-
-                    targetZone.hide().html(content).val(content); // display none before setting new content
-                    (inst.options.afterHide || $.noop).call(input[0], targetZone);
-                    (inst.options.show || $.noop).call(input[0], targetZone); // call show callback
-
-                    targetZone.promise().done(function () { // once shown animation done (resolved instantly if no animation)
-                        targetZone.show(); // now we can really show
-                        (inst.options.afterShow || $.noop).call(input[0], targetZone);
-                    });
-                })
-            });
+        _updateHelpZoneContent: function (source, inst, targetZone, content) {
+            targetZone.html(content).val(content);
+            (inst.options.afterShow || $.noop).call(source[0], targetZone[0]);
         },
 
 
         /**
          * Put oldName attribute content into newName attribute and remove oldName attribute
-         * @param {element} input the element onto which perform the switch
+         * @param {element} source the element onto which perform the switch
          * @param {String} oldName the attribute to be replaced with newName
          * @param {String} newName the attribute to replace oldName with
          */
-        _switchAttribute: function (input, oldName, newName) {
-            input = $(input);
-            input.attr(newName, input.attr(oldName)).removeAttr(oldName);
+        _switchAttribute: function (source, oldName, newName) {
+            source = $(source);
+            source.attr(newName, source.attr(oldName)).removeAttr(oldName);
         },
 
         /**
          * Update content immediately from custom content if present or from calling the content callback otherwise.
          * Also calls beforeUpdate() and triggers helpzonebeforeupdate custom Event.
-         * @param {element} input the input element the helpzone refers to
-         * @param {String} content string
+         * @param {element} source the source element the helpzone refers to
+         * @param {String} (Optional) content string (defaults to calling instance content function if absent)
          */
-        _updatePlugin: function (input, content) {
-            input = $(input);
+        _updatePlugin: function (source, content) {
+            source = $(source);
 
-            if (!input.hasClass(this.markerClassNameSource)) {
+            if (!source.hasClass(this.markerClassNameSource)) {
                 return;
             }
-            var inst = input.data(this.propertyName);
+            var inst = source.data(this.propertyName);
 
-            content = content || inst.options.content.call(input[0]);
-            this._beforeUpdateHelpZonesContent(input, inst, content);
+            inst.options.zones.each(function () {
+                plugin._beforeUpdateHelpZoneContent(source, inst, $(this) , content, true);
+            });
         },
 
 
         /**
          * Call beforeUpdate callback and trigger beforeUpdateEvent before actual update
          * if not canceled.
-         * @param {jQuery} input the jquery input element
+         * @param {jQuery} source the jquery source element
          * @param {Object} inst the plugin instance
-         * @param {String} (optional) content the html content as string to set in the target zone
+         * @param {jQuery} targetZone the helpzone to update
+         * @param {String} (optional) content the html content as string to set in the target zone.
+         *                 Defaults to calling instance content function if absent.
+         * @param {Boolean} (optional) manualUpdate wether the update is done from manual update call (true) or from options.event
+         *                 (false) (default: false)
          * @private
          */
-        _beforeUpdateHelpZonesContent: function (input, inst, content) {
+        _beforeUpdateHelpZoneContent: function (source, inst, targetZone, content, manualUpdate) {
             var eventParams = { // object passed as params of custom event
-                // WARNING: use find() instead of children() as if jquery ui effects are running, a wrapper div is added !
-                targetHelpzones: inst.options.zones.find("." + plugin.markerClassNameWrapper),
-                newContent: inst.options.content.call(input[0])
+                targetZone: targetZone[0],
+                newContent: content || inst.options.content.call(source[0], targetZone[0]),
+                manualUpdate: manualUpdate || false
             };
 
             var beforeUpdateEvent = $.Event("helpzonebeforeupdate");
 
-            beforeUpdateEvent.target = input[0]; // set target event so delegated event can work
+            beforeUpdateEvent.target = source[0]; // set target event so delegated event can work
             if ($.isFunction(inst.options.beforeUpdate)) { // call custom event handler before update
-                if (inst.options.beforeUpdate.call(input[0], beforeUpdateEvent, eventParams) === false) { //cancel if returns false
+                if (inst.options.beforeUpdate.call(source[0], eventParams) === false) { //cancel if returns false
                     return;
                 }
             }
 
-            input.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
+            source.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
             if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                plugin._updateHelpZonesContent(input, inst, eventParams.newContent);
+                plugin._updateHelpZoneContent(source, inst, targetZone, eventParams.newContent);
             }
         },
 
 
         /**
-         * Get all help zones only in use by the input passed in argument
-         * @param {element} input the input reference targetting the shared zone
-         * @return {jQuery} a collection of 0 or more help zones that are not shared with any other input sources
+         * Get all help zones only in use by the source passed in argument
+         * @param {element} source the source reference targetting the shared zone
+         * @param {Object} inst the source instance plugin
+         * @return {jQuery} a collection of 0 or more help zones that are not shared with any other source sources
         */
-        _getHelpzonesOnlyUsedByInputSource: function (input) {
-            input = $(input);
-            var thisInputZones = input.data(plugin.propertyName).options.zones;
-            var differentInputZones = $();
+        _getHelpzonesOnlyUsedBySource: function (source, inst) {
+            source = $(source);
+            var thisSourceZones = inst.options.zones;
+            var differentSourceZones = $();
 
-            $("." + this.markerClassNameSource).not(input).filter(function () {
-                var candidateInputZonesArray = $(this).data(plugin.propertyName).options.zones.toArray();
+            $("." + this.markerClassNameSource).not(source).filter(function () {
+                var candidateSourceZonesArray = $(this).data(plugin.propertyName).options.zones.toArray();
 
-                differentInputZones.add(thisInputZones.filter(function (index) {
-                    return candidateInputZonesArray.indexOf(thisInputZones[index]) === -1;
+                differentSourceZones.add(thisSourceZones.filter(function (index) {
+                    return candidateSourceZonesArray.indexOf(thisSourceZones[index]) === -1;
                 }));
 
             });
 
-            return differentInputZones.length ? differentInputZones : thisInputZones;
+            return differentSourceZones.length ? differentSourceZones : thisSourceZones;
         },
 
         /**
-         * Considering the input in argument, look for each of its associated zones and restore original
-         * if any of them is not used by another source input
-         * @param input the source input
+         * Considering the source in argument, look for each of its associated zones and restore original
+         * if any of them is not used by another source source
+         * @param source the source element
          * @param inst the instance plugin
          */
-        _resetHelpzonesDefaults: function (input, inst) {
+        _resetHelpzonesDefaults: function (source, inst) {
             // restore to initial state
-            this._getHelpzonesOnlyUsedByInputSource(input[0])
+            this._getHelpzonesOnlyUsedBySource(source[0], inst)
+                .remove(this.marckerClassNameNotInDOM)
                 .removeClass(this.markerClassNameTarget)
                 .each(function (i) {
                     $(this).html(inst.initialContent[i]);
@@ -318,40 +342,47 @@
 
         /**
          * Get the content to be added to the helpzone
-         * @param {element} input the input we want the content from
-         * @returns {String} the htmlString of the content
+         * @param {element} source the source element we want the content from
+         * @returns {Object} with properties "zone" the targeted zone and "content" the content
          */
-        _contentPlugin: function (input) {
-            input = $(input);
+        _contentPlugin: function (source) {
+            source = $(source);
 
-            if (!input.hasClass(this.markerClassNameSource)) {
+            if (!source.hasClass(this.markerClassNameSource)) {
                 return;
             }
-            var inst = input.data(this.propertyName);
-            return inst.options.content.call(input[0]);
+            var inst = source.data(this.propertyName);
+            return inst.options.zones.map(function () {
+                return {
+                    zone: this,
+                    content: inst.options.content.call(source[0], this)
+                };
+            });
         },
 
         /**
-         * Remove the plugin attached to the input to restore it to its initial state before applying the plugin
-         * @param {element} input the input to remove the plugin from
+         * Remove the plugin attached to the source element to restore it to its initial state before applying the plugin
+         * @param {element} source the source element to remove the plugin from
          */
-        _destroyPlugin: function (input) {
-            input = $(input);
+        _destroyPlugin: function (source) {
+            source = $(source);
 
-            if (!input.hasClass(this.markerClassNameSource)) {
+            if (!source.hasClass(this.markerClassNameSource)) {
                 return;
             }
-            var inst = input.data(this.propertyName);
+            var inst = source.data(this.propertyName);
 
-            this._resetHelpzonesDefaults(input, inst);
+            this._resetHelpzonesDefaults(source, inst);
 
-            input.removeClass(this.markerClassNameSource);
-            input.removeData(this.propertyName);
-            input.off(inst.options.event + '.' + this.propertyName);
+            source.removeClass(this.markerClassNameSource);
+            source.removeData(this.propertyName);
+            source.off(inst.options.event + '.' + this.propertyName);
 
-            if (inst.options.suppress) {
-                this._switchAttribute(input[0], "oldtitle", "title");
+            if (inst.options.suppress && source[0].title) {
+                this._switchAttribute(source[0], "oldtitle", "title");
             }
+
+            $('.' + this.marckerClassNameNotInDOM).remove(); // delete all created automatically created helpzones
         }
     });
 
@@ -380,4 +411,7 @@
             }
         });
     }
+
+    // make defaults publicly accessible
+    $.fn.helpzone.defaults = plugin.defaults;
 }));
