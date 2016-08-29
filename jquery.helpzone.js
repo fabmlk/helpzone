@@ -24,7 +24,7 @@
  *  - event: which event trigger the display to the helpzone (default: focus)
  *  - suppress: wether to remove the title attributes as title attributes are always shown on hover by the browser (default: true)
  *  - afterShow: callback functions when the new content has been shown.
- *	    Context is the current source element and the targetZone is passed as param 
+ *	         Context is the current source element and the same object as "helpzonebeforeupdate" event is passed in argument
  *  - content: function to call to get the new content to display.
  *          Context is the current source element.
  *          (default: get the title attribute content of the source or specified in data-helpzone-title-ref)
@@ -226,11 +226,11 @@
 
          * @param {jQuery} source the jquery source element
          * @param {Object} inst the plugin instance
-         * @param {String} content the html content as string to set in the target zone
+         * @param {Object} params as passed to beforeUpdateEvent or beforeUpdate call
          */
-        _updateHelpZoneContent: function (source, inst, targetZone, content) {
-            targetZone.html(content).val(content);
-            (inst.options.afterShow || $.noop).call(source[0], targetZone[0]);
+        _updateHelpZoneContent: function (source, inst, eventParams) {
+            $(eventParams.targetZone).html(eventParams.newContent).val(eventParams.newContent);
+            (inst.options.afterShow || $.noop).call(source[0], eventParams);
         },
 
 
@@ -295,7 +295,7 @@
 
             source.trigger(beforeUpdateEvent, [eventParams]); // trigger our custom event before update
             if (!beforeUpdateEvent.isDefaultPrevented()) { // if not prevented
-                plugin._updateHelpZoneContent(source, inst, targetZone, eventParams.newContent);
+                plugin._updateHelpZoneContent(source, inst, eventParams);
             }
         },
 
