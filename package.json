@@ -8,12 +8,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fabmlk/helpzone.git"
+    "url": "git+https://github.com/fabmlk/helpzone.git"
   },
-  "author": "fabien lanoux",
+  "author": {
+    "name": "fabien lanoux"
+  },
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/fabmlk/helpzone/issues"
   },
-  "homepage": "https://github.com/fabmlk/helpzone"
+  "homepage": "https://github.com/fabmlk/helpzone",
+  "readme": "# helpzone\r\n",
+  "readmeFilename": "README.md",
+  "gitHead": "6cf8e30356d7d4ed590208643d6caa53beca6469",
+  "_id": "jquery-helpzone@1.0.0",
+  "_shasum": "2254b23a8980d90ad9612ddcb7b011eef16f3e41",
+  "_from": "fabmlk/jquery-helpzone#multiplezones",
+  "_resolved": "git://github.com/fabmlk/jquery-helpzone.git#6cf8e30356d7d4ed590208643d6caa53beca6469"
 }

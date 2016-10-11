@@ -56,6 +56,8 @@
     }
 }(function ($) {
 
+    var getters = ["content"]; // list of getter methods
+
     // singleton pattern for jquery plugin best practice
     function HelpZone() {
         this.defaults = {
@@ -389,6 +391,21 @@
     // instanciate our singleton and save it the external plugin so we can reference it anywhere
     var plugin = $.helpzone = new HelpZone();
 
+    /**
+     * Boilerplate jquery plugin code: Determine whether a method is a getter and doesn't permit chaining.
+     * @param method {String} (Optional) the method to run
+     * @param otherArgs {Array} (Optional) any other arguments for the method
+     * @returns {boolean} true if the method is a getter, false if not
+     */
+    function isNotChained (method, otherArgs) {
+        if (method === 'option' && (otherArgs.length == 0 ||
+            (otherArgs.length === 1 && typeof otherArgs[0] === 'string'))) {
+            return true;
+        }
+        return $.inArray(method, getters) > -1;
+    }
+
+
     // $.fn est en fait un alias pour $.prototype.
     // On définit un "collection plugin" dans le sens où on voudra l'appeler sur une collection de jquery object ex: $('.selector').helpzone()
     // Quand on utilise $.fn, jQuery nous passe dans le 'this' la collection des dom jquery objects, il ne faut donc pas utilier $(this)!
@@ -400,6 +417,11 @@
      */
     $.fn.helpzone = function (options) {
         var otherArgs = Array.prototype.slice.call(arguments, 1); // extract secondary parameters
+
+        if (isNotChained(options, otherArgs)) { // if the method is a getter, returns method's value directly
+            return plugin['_' + options + 'Plugin'].apply(plugin, [this[0]].concat(otherArgs));
+        }
+
         return this.each(function () {
             if (typeof options == 'string') { // if method call aka $('.selector').helpzone('somemethod');
                 if (!plugin['_' + options + 'Plugin']) { // check that method exists
